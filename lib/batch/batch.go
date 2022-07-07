@@ -1,6 +1,9 @@
 package batch
 
 import (
+	"context"
+	"golang.org/x/sync/errgroup"
+	"sync"
 	"time"
 )
 
@@ -14,5 +17,24 @@ func getOne(id int64) user {
 }
 
 func getBatch(n int64, pool int64) (res []user) {
-	return nil
+	var mutex sync.Mutex
+	errG, _ := errgroup.WithContext(context.Background())
+	errG.SetLimit(int(pool))
+	for i := 0; i < int(n); i++ {
+		id := i
+		errG.Go(func() error {
+			one := getOne(int64(id))
+			mutex.Lock()
+			res = append(res, one)
+			mutex.Unlock()
+			return nil
+		})
+	}
+
+	err := errG.Wait()
+	if err != nil {
+		panic(err)
+	}
+
+	return res
 }
